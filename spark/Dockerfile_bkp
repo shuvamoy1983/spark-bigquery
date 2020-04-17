@@ -1,0 +1,35 @@
+FROM infotechsoft/hadoop:latest
+
+ARG SPARK_VERSION=2.4.0
+ENV SPARK_VERSION ${SPARK_VERSION}
+ENV SPARK_HOME=/opt/spark-$SPARK_VERSION
+
+RUN set -x \
+    && . /functions.sh \
+    && apache_install spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-without-hadoop.tgz spark/KEYS \
+    && mv /opt/spark-$SPARK_VERSION-* $SPARK_HOME
+
+WORKDIR $SPARK_HOME
+ENV PATH $SPARK_HOME/bin:$PATH
+
+ADD spark-entrypoint.sh /
+ADD spark-historyserver.sh /
+ADD spark-master.sh /
+ADD spark-slave.sh /
+
+ADD gcsio-2.1.2.jar google-oauth-client-1.30.6.jar google-http-client-1.34.2.jar flogger-0.5.1.jar gson-2.7.jar httpclient-4.5.12.jar google-api-client-1.30.9.jar google-api-services-bigquery-v2-rev459-1.25.0.jar google-api-services-storage-v1-rev171-1.25.0.jar spark-bigquery_2.11-0.2.2.jar google-cloud-bigquery-1.110.0.jar google-cloud-bigquerystorage-0.126.0-beta.jar grpc-alts-1.28.1.jar gax-grpc-1.55.0.jar grpc-netty-shaded-1.28.1.jar spark-bigquery-with-dependencies_2.11-0.14.0-beta.jar gcs-connector-hadoop3-2.1.2.jar  guava-23.0.jar /opt/spark-2.4.0/jars/  
+ADD spark-sa.json /opt/
+ADD core-site.xml /etc/hadoop/
+RUN chmod a+x \
+    /spark-entrypoint.sh \
+    /spark-historyserver.sh \
+    /spark-master.sh \
+    /spark-slave.sh
+
+ENV GS_PROJECT_ID=sincere-charmer-268311    
+RUN echo "export SPARK_DIST_CLASSPATH=$(hadoop classpath)" >> /opt/spark-$SPARK_VERSION/conf/spark-env.sh
+RUN export $SPARK_DIST_CLASSPATH
+RUN echo "export LD_LIBRARY_PATH=$HADOOP_PREFIX/lib/native/" >> /opt/spark-$SPARK_VERSION/conf/spark-env.sh 
+RUN echo "export HADOOP_OPTS=$HADOOP_OPTS -Dgs.project.id=$GS_PROJECT_ID" >> /opt/spark-$SPARK_VERSION/conf/spark-env.sh
+RUN echo "export HADOOP_CONF_DIR=/etc/hadoop"  >> /opt/spark-$SPARK_VERSION/conf/spark-env.sh
+ENTRYPOINT ["/spark-entrypoint.sh"]
